@@ -1,7 +1,7 @@
 ---
 name: sonarqube-agenthq
 description: Helps users improve code quality and security by integrating with SonarQube to analyze code, identify issues, and suggest improvements.
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ["view", "edit", "sonarqube/*"]
 mcp-servers:
   sonarqube:
