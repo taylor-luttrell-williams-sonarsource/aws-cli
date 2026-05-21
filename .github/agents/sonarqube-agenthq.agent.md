@@ -1,5 +1,5 @@
 ---
-name: sonarqube
+name: sonarqube-agenthq
 description: Helps users improve code quality and security by integrating with SonarQube to analyze code, identify issues, and suggest improvements.
 disable-model-invocation: true
 tools: ["view", "edit", "sonarqube/*"]
