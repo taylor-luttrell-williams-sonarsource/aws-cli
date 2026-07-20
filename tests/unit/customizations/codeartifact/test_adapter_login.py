@@ -1198,7 +1198,7 @@ index-servers=
 [pypi]
 repository: http://www.python.org/pypi/
 username: monty
-password: JgCXIr5xGG
+password: test-password
 
 [test]
 repository: http://example.com/test/
@@ -1227,7 +1227,7 @@ password: testpassword
             server='pypi',
             repo_url='http://www.python.org/pypi/',
             username='monty',
-            password='JgCXIr5xGG'
+            password='test-password'
         )
 
         self._assert_pypi_rc_has_expected_content(
@@ -1248,7 +1248,7 @@ index-servers=
 [pypi]
 repository: http://www.python.org/pypi/
 username: monty
-password: JgCXIr5xGG
+password: test-password
 
 [codeartifact]
 repository: https://test-testOwner.codeartifact.aws.a2z.com/pypi/testRepo/
@@ -1277,7 +1277,7 @@ password: expired_token
             server='pypi',
             repo_url='http://www.python.org/pypi/',
             username='monty',
-            password='JgCXIr5xGG'
+            password='test-password'
         )
 
     @skip_if_windows("Unix file permissions are not supported on Windows.")
@@ -1297,7 +1297,7 @@ index-servers=
 [pypi]
 repository: http://www.python.org/pypi/
 username: test
-password: JgCXIr5xGG
+password: test-password
 '''
         with open(self.test_pypi_rc_path, 'w') as f:
             f.write(existing_pypi_rc)
@@ -1330,7 +1330,7 @@ servers=
 [pypi]
 repository: http://www.python.org/pypi/
 username: monty
-password: JgCXIr5xGG
+password: test-password
 '''
 
         with open(self.test_pypi_rc_path, 'w+') as f:
