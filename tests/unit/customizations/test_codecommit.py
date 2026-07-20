@@ -202,8 +202,6 @@ class TestCodeCommitCredentialHelper(unittest.TestCase):
     @mock.patch('botocore.auth.SigV4Auth.signature')
     def test_generate_credentials_creates_a_valid_request(self, signature,
                                                           string_to_sign):
-        self.credentials = Credentials('access', 'secret')
-        self.session.get_credentials.return_value = self.credentials
         self.get_command = CodeCommitGetCommand(self.session)
         self.get_command._run_main(self.args, self.globals)
         aws_request = signature.call_args[0][1]
