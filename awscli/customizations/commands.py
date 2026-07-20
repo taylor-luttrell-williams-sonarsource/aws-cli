@@ -51,7 +51,7 @@ class BasicCommand(CLICommand):
     # This is the name of your command, so if you want to
     # create an 'aws mycommand ...' command, the NAME would be
     # 'mycommand'
-    NAME = 'commandname'
+    # Subclasses should set NAME to the desired command name.
     # This is the description that will be used for the 'help'
     # command.
     DESCRIPTION = 'describe the command'
@@ -78,7 +78,7 @@ class BasicCommand(CLICommand):
     #
     # A `schema` parameter option is available to accept a custom JSON
     # structure as input. See the file `awscli/schema.py` for more info.
-    ARG_TABLE = []
+    # Subclasses should override ARG_TABLE with a list of argument dicts.
     # If you want the command to have subcommands, you can provide a list of
     # dicts.  We use a list here because we want to allow a user to provide
     # the order they want to use for subcommands.
@@ -216,7 +216,7 @@ class BasicCommand(CLICommand):
             subcommand_name = subcommand['name']
             subcommand_class = subcommand['command_class']
             subcommand_table[subcommand_name] = subcommand_class(self._session)
-        self._session.emit('building-command-table.%s' % self.NAME,
+        self._session.emit('building-command-table.%s' % self.name,
                            command_table=subcommand_table,
                            session=self._session,
                            command_object=self)
@@ -247,9 +247,10 @@ class BasicCommand(CLICommand):
 
     def _build_arg_table(self):
         arg_table = OrderedDict()
-        self._session.emit('building-arg-table.%s' % self.NAME,
-                           arg_table=self.ARG_TABLE)
-        for arg_data in self.ARG_TABLE:
+        arg_definitions = getattr(self, 'ARG_TABLE', [])
+        self._session.emit('building-arg-table.%s' % self.name,
+                           arg_table=arg_definitions)
+        for arg_data in arg_definitions:
 
             # If a custom schema was passed in, create the argument_model
             # so that it can be validated and docs can be generated.
@@ -281,11 +282,12 @@ class BasicCommand(CLICommand):
 
     @classmethod
     def add_command(cls, command_table, session, **kwargs):
-        command_table[cls.NAME] = cls(session)
+        command = cls(session)
+        command_table[command.name] = command
 
     @property
     def name(self):
-        return self.NAME
+        return getattr(type(self), 'NAME', 'commandname')
 
     @property
     def lineage(self):
@@ -316,7 +318,7 @@ class BasicHelp(HelpCommand):
 
     @property
     def name(self):
-        return self.obj.NAME
+        return self.obj.name
 
     @property
     def description(self):
