@@ -358,17 +358,16 @@ class DeployCommand(BasicCommand):
             if fail_on_empty_changeset:
                 raise
             write_exception(ex, outfile=get_stdout_text_writer())
-            return 0
-
-        if execute_changeset:
-            deployer.execute_changeset(result.changeset_id, stack_name,
-                                       disable_rollback)
-            deployer.wait_for_execute(stack_name, result.changeset_type)
-            sys.stdout.write(self.MSG_EXECUTE_SUCCESS.format(
-                    stack_name=stack_name))
         else:
-            sys.stdout.write(self.MSG_NO_EXECUTE_CHANGESET.format(
-                    changeset_id=result.changeset_id))
+            if execute_changeset:
+                deployer.execute_changeset(result.changeset_id, stack_name,
+                                           disable_rollback)
+                deployer.wait_for_execute(stack_name, result.changeset_type)
+                sys.stdout.write(self.MSG_EXECUTE_SUCCESS.format(
+                        stack_name=stack_name))
+            else:
+                sys.stdout.write(self.MSG_NO_EXECUTE_CHANGESET.format(
+                        changeset_id=result.changeset_id))
 
         sys.stdout.flush()
         return 0
