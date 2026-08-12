@@ -131,7 +131,7 @@ class ShorthandParser:
     _FIRST_FOLLOW_CHARS = r'\s\!\#-&\(-\+\--\\\\\^-\|~-\uffff'
     _SECOND_FOLLOW_CHARS = r'\s\!\#-&\(-\+\--\<\>-\uffff'
     _ESCAPED_COMMA = '(\\\\,)'
-    _FIRST_VALUE = _NamedRegex(
+    _FIRST_VALUE_RE = _NamedRegex(
         'first',
         f'({_ESCAPED_COMMA}|[{_START_WORD}])'
         f'({_ESCAPED_COMMA}|[{_FIRST_FOLLOW_CHARS}])*',
@@ -239,7 +239,7 @@ class ShorthandParser:
         # value 'b'.
         while True:
             try:
-                current = self._second_value()
+                current = self._parse_second_value()
                 self._consume_whitespace()
                 if self._at_eof():
                     csv_list.append(current)
@@ -267,7 +267,7 @@ class ShorthandParser:
         return csv_list
 
     def _value(self):
-        result = self._FIRST_VALUE.match(self._input_value[self._index :])
+        result = self._FIRST_VALUE_RE.match(self._input_value[self._index :])
         if result is not None:
             consumed = self._consume_matched_regex(result)
             processed = consumed.replace('\\,', ',').rstrip()
@@ -344,7 +344,7 @@ class ShorthandParser:
         processed = self._consume_quoted(self._DOUBLE_QUOTED, escaped_char='"')
         return self._resolve_paramfiles(processed) if self._should_resolve_paramfiles else processed
 
-    def _second_value(self):
+    def _parse_second_value(self):
         if self._current() == "'":
             return self._single_quoted_value()
         elif self._current() == '"':
