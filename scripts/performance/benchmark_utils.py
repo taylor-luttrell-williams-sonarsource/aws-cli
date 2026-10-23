@@ -6,6 +6,8 @@ import shutil
 import argparse
 import tempfile
 
+S3_PREFIX = 's3://'
+
 
 def summarize(script, result_dir, summary_dir):
     """Run the given summary script on every file in the given directory.
@@ -58,7 +60,7 @@ def backup(source, recursive):
     :type recursive: bool
     :param recursive: if True, the source will be treated as a directory.
     """
-    if source[:5] == 's3://':
+    if source[:5] == S3_PREFIX:
         parts = source.split('/')
         parts.insert(3, str(uuid.uuid4()))
         backup_path = '/'.join(parts)
@@ -85,7 +87,7 @@ def copy(source, destination, recursive):
     :type recursive: bool
     :param recursive: if True, the source will be treated as a directory.
     """
-    if 's3://' in [source[:5], destination[:5]]:
+    if S3_PREFIX in [source[:5], destination[:5]]:
         cp_args = ['aws', 's3', 'cp', source, destination, '--quiet']
         if recursive:
             cp_args.append('--recursive')
@@ -100,7 +102,7 @@ def copy(source, destination, recursive):
 
 def clean(destination, recursive):
     """Delete a file or directory either locally or on S3."""
-    if destination[:5] == 's3://':
+    if destination[:5] == S3_PREFIX:
         rm_args = ['aws', 's3', 'rm', '--quiet', destination]
         if recursive:
             rm_args.append('--recursive')
@@ -115,7 +117,7 @@ def clean(destination, recursive):
 def create_random_subfolder(destination):
     """Create a random subdirectory in a given directory."""
     folder_name = str(uuid.uuid4())
-    if destination.startswith('s3://'):
+    if destination.startswith(S3_PREFIX):
         parts = destination.split('/')
         parts.append(folder_name)
         return '/'.join(parts)
