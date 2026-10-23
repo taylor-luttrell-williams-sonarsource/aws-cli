@@ -65,6 +65,9 @@ class HTMLTranslator(SphinxHTMLTranslator):
         self.set_first_last(node)
 
 
+KEYWORD_STYLE = "bold #004461"
+
+
 class GuzzleStyle(Style):
     background_color = "#f8f8f8"
     default_style = ""
@@ -79,16 +82,16 @@ class GuzzleStyle(Style):
         Comment:                   "italic #8f5902", # class: 'c'
         Comment.Preproc:           "noitalic",       # class: 'cp'
 
-        Keyword:                   "bold #004461",   # class: 'k'
-        Keyword.Constant:          "bold #004461",   # class: 'kc'
-        Keyword.Declaration:       "bold #004461",   # class: 'kd'
-        Keyword.Namespace:         "bold #004461",   # class: 'kn'
-        Keyword.Pseudo:            "bold #004461",   # class: 'kp'
-        Keyword.Reserved:          "bold #004461",   # class: 'kr'
-        Keyword.Type:              "bold #004461",   # class: 'kt'
+        Keyword:                   KEYWORD_STYLE,    # class: 'k'
+        Keyword.Constant:          KEYWORD_STYLE,    # class: 'kc'
+        Keyword.Declaration:       KEYWORD_STYLE,    # class: 'kd'
+        Keyword.Namespace:         KEYWORD_STYLE,    # class: 'kn'
+        Keyword.Pseudo:            KEYWORD_STYLE,    # class: 'kp'
+        Keyword.Reserved:          KEYWORD_STYLE,    # class: 'kr'
+        Keyword.Type:              KEYWORD_STYLE,    # class: 'kt'
 
         Operator:                  "#582800",   # class: 'o'
-        Operator.Word:             "bold #004461",   # class: 'ow' - like keywords
+        Operator.Word:             KEYWORD_STYLE,    # class: 'ow' - like keywords
 
         Punctuation:               "bold #000000",   # class: 'p'
 
@@ -109,7 +112,7 @@ class GuzzleStyle(Style):
         Name.Label:                "#f57900",        # class: 'nl'
         Name.Namespace:            "#000000",        # class: 'nn' - to be revised
         Name.Other:                "#000000",        # class: 'nx'
-        Name.Tag:                  "bold #004461",   # class: 'nt' - like a keyword
+        Name.Tag:                  KEYWORD_STYLE,    # class: 'nt' - like a keyword
         Name.Variable:             "#000000",        # class: 'nv' - to be revised
         Name.Variable.Class:       "#000000",        # class: 'vc' - to be revised
         Name.Variable.Global:      "#000000",        # class: 'vg' - to be revised

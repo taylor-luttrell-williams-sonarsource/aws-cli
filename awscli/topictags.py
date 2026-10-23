@@ -77,15 +77,18 @@ class TopicTagDB:
     ]
 
     # The default directory to look for topics.
-    TOPIC_DIR = os.path.join(
+    DEFAULT_TOPIC_DIR = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 'topics'
     )
 
     # The default JSON index to load.
-    JSON_INDEX = os.path.join(TOPIC_DIR, 'topic-tags.json')
+    JSON_INDEX = os.path.join(DEFAULT_TOPIC_DIR, 'topic-tags.json')
 
     def __init__(
-        self, tag_dictionary=None, index_file=JSON_INDEX, topic_dir=TOPIC_DIR
+        self,
+        tag_dictionary=None,
+        index_file=JSON_INDEX,
+        topic_dir=DEFAULT_TOPIC_DIR,
     ):
         """
         :param index_file: The path to a specific JSON index to load.
@@ -97,7 +100,7 @@ class TopicTagDB:
             in this directory, you must supply the full path to the json
             index to the ``file_index`` argument as it may not be ignored when
             listing topic source files. If nothing is specified it will
-            default to the default directory at ``TOPIC_DIR``.
+            default to the default directory at ``DEFAULT_TOPIC_DIR``.
         """
         self._tag_dictionary = tag_dictionary
         if self._tag_dictionary is None:

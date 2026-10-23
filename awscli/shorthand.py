@@ -440,6 +440,8 @@ class ModelVisitor:
             self._visit(value, value_shape, k, v)
 
     def _visit_scalar(self, parent, shape, name, value):
+        # Scalars have no nested members to traverse, so the base visitor
+        # does nothing here. Subclasses override this to process scalars.
         pass
 
 

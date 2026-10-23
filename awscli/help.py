@@ -36,6 +36,7 @@ from awscli.topictags import TopicTagDB
 from awscli.utils import ignore_ctrl_c
 
 LOG = logging.getLogger('awscli.help')
+RUNNING_COMMAND_LOG_MSG = "Running command: %s"
 
 
 class ExecutableNotFoundError(Exception):
@@ -98,7 +99,7 @@ class PagingHelpRenderer:
 
     def _send_output_to_pager(self, output):
         cmdline = self.get_pager_cmdline()
-        LOG.debug("Running command: %s", cmdline)
+        LOG.debug(RUNNING_COMMAND_LOG_MSG, cmdline)
         p = self._popen(cmdline, stdin=PIPE)
         p.communicate(input=output)
 
@@ -129,7 +130,7 @@ class PosixHelpRenderer(PagingHelpRenderer):
             cmdline = ['mandoc', '-T', 'ascii']
         else:
             raise ExecutableNotFoundError('groff or mandoc')
-        LOG.debug("Running command: %s", cmdline)
+        LOG.debug(RUNNING_COMMAND_LOG_MSG, cmdline)
         p3 = self._popen(cmdline, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         output = p3.communicate(input=man_contents)[0]
         return output
@@ -143,7 +144,7 @@ class PosixHelpRenderer(PagingHelpRenderer):
             self.output_stream.write(output.decode('utf-8') + "\n")
             self.output_stream.flush()
             return
-        LOG.debug("Running command: %s", cmdline)
+        LOG.debug(RUNNING_COMMAND_LOG_MSG, cmdline)
         with ignore_ctrl_c():
             # We can't rely on the KeyboardInterrupt from
             # the CLIDriver being caught because when we
