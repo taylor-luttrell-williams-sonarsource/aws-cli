@@ -241,82 +241,11 @@ class CreateCluster(Command):
         params['Name'] = parsed_args.name
 
         self._validate_release_label_ami_version(parsed_args)
+        self._validate_mutually_exclusive_options(parsed_args)
 
-        service_role_validation_message = (
-            " Either choose --use-default-roles or use both --service-role "
-            "<roleName> and --ec2-attributes InstanceProfile=<profileName>."
-        )
+        instances_config = self._build_instances_config(parsed_args)
 
-        if (
-            parsed_args.use_default_roles is True
-            and parsed_args.service_role is not None
-        ):
-            raise exceptions.MutualExclusiveOptionError(
-                option1="--use-default-roles",
-                option2="--service-role",
-                message=service_role_validation_message,
-            )
-
-        if (
-            parsed_args.use_default_roles is True
-            and parsed_args.ec2_attributes is not None
-            and 'InstanceProfile' in parsed_args.ec2_attributes
-        ):
-            raise exceptions.MutualExclusiveOptionError(
-                option1="--use-default-roles",
-                option2="--ec2-attributes InstanceProfile",
-                message=service_role_validation_message,
-            )
-
-        if (
-            parsed_args.instance_groups is not None
-            and parsed_args.instance_fleets is not None
-        ):
-            raise exceptions.MutualExclusiveOptionError(
-                option1="--instance-groups", option2="--instance-fleets"
-            )
-
-        instances_config = {}
-        if parsed_args.instance_fleets is not None:
-            instances_config['InstanceFleets'] = (
-                instancefleetsutils.validate_and_build_instance_fleets(
-                    parsed_args.instance_fleets
-                )
-            )
-        else:
-            instances_config['InstanceGroups'] = (
-                instancegroupsutils.validate_and_build_instance_groups(
-                    instance_groups=parsed_args.instance_groups,
-                    instance_type=parsed_args.instance_type,
-                    instance_count=parsed_args.instance_count,
-                )
-            )
-
-        if parsed_args.release_label is not None:
-            params["ReleaseLabel"] = parsed_args.release_label
-            if parsed_args.configurations is not None:
-                try:
-                    params["Configurations"] = json.loads(
-                        parsed_args.configurations
-                    )
-                except ValueError:
-                    raise ValueError(
-                        'aws: error: invalid json argument for '
-                        'option --configurations'
-                    )
-
-        if (
-            parsed_args.release_label is None
-            and parsed_args.ami_version is not None
-        ):
-            is_valid_ami_version = re.match(
-                r'\d?\..*', parsed_args.ami_version
-            )
-            if is_valid_ami_version is None:
-                raise exceptions.InvalidAmiVersionError(
-                    ami_version=parsed_args.ami_version
-                )
-            params['AmiVersion'] = parsed_args.ami_version
+        self._apply_release_label_and_ami_version(params, parsed_args)
         emrutils.apply_dict(
             params, 'AdditionalInfo', parsed_args.additional_info
         )
@@ -334,19 +263,11 @@ class CreateCluster(Command):
                 parsed_args.log_encryption_kms_key_id,
             )
 
-        if parsed_args.use_default_roles is True:
-            parsed_args.service_role = EMR_ROLE_NAME
-            if parsed_args.ec2_attributes is None:
-                parsed_args.ec2_attributes = {}
-            parsed_args.ec2_attributes['InstanceProfile'] = EC2_ROLE_NAME
+        self._apply_default_roles(parsed_args)
 
         emrutils.apply_dict(params, 'ServiceRole', parsed_args.service_role)
 
-        if parsed_args.instance_groups is not None:
-            for instance_group in instances_config['InstanceGroups']:
-                if 'AutoScalingPolicy' in instance_group.keys():
-                    if parsed_args.auto_scaling_role is None:
-                        raise exceptions.MissingAutoScalingRoleError()
+        self._validate_auto_scaling_role(parsed_args, instances_config)
 
         emrutils.apply_dict(
             params, 'AutoScalingRole', parsed_args.auto_scaling_role
@@ -357,42 +278,7 @@ class CreateCluster(Command):
                 params, 'ScaleDownBehavior', parsed_args.scale_down_behavior
             )
 
-        if (
-            parsed_args.no_auto_terminate is False
-            and parsed_args.auto_terminate is False
-        ):
-            parsed_args.no_auto_terminate = True
-
-        instances_config['KeepJobFlowAliveWhenNoSteps'] = (
-            emrutils.apply_boolean_options(
-                parsed_args.no_auto_terminate,
-                '--no-auto-terminate',
-                parsed_args.auto_terminate,
-                '--auto-terminate',
-            )
-        )
-
-        instances_config['TerminationProtected'] = (
-            emrutils.apply_boolean_options(
-                parsed_args.termination_protected,
-                '--termination-protected',
-                parsed_args.no_termination_protected,
-                '--no-termination-protected',
-            )
-        )
-
-        if (
-            parsed_args.unhealthy_node_replacement
-            or parsed_args.no_unhealthy_node_replacement
-        ):
-            instances_config['UnhealthyNodeReplacement'] = (
-                emrutils.apply_boolean_options(
-                    parsed_args.unhealthy_node_replacement,
-                    '--unhealthy-node-replacement',
-                    parsed_args.no_unhealthy_node_replacement,
-                    '--no-unhealthy-node-replacement',
-                )
-            )
+        self._apply_instance_boolean_options(parsed_args, instances_config)
 
         if (
             parsed_args.visible_to_all_users is False
@@ -415,43 +301,10 @@ class CreateCluster(Command):
                 cluster=params, parsed_attrs=parsed_args.ec2_attributes
             )
 
-        debugging_enabled = emrutils.apply_boolean_options(
-            parsed_args.enable_debugging,
-            '--enable-debugging',
-            parsed_args.no_enable_debugging,
-            '--no-enable-debugging',
-        )
-
-        if parsed_args.log_uri is None and debugging_enabled is True:
-            raise exceptions.LogUriError
-
-        if debugging_enabled is True:
-            self._update_cluster_dict(
-                cluster=params,
-                key='Steps',
-                value=[
-                    self._build_enable_debugging(parsed_args, parsed_globals)
-                ],
-            )
+        self._apply_debugging(params, parsed_args, parsed_globals)
 
         if parsed_args.applications is not None:
-            if parsed_args.release_label is None:
-                app_list, ba_list, step_list = (
-                    applicationutils.build_applications(
-                        region=self.region,
-                        parsed_applications=parsed_args.applications,
-                        ami_version=params['AmiVersion'],
-                    )
-                )
-                self._update_cluster_dict(
-                    params, 'NewSupportedProducts', app_list
-                )
-                self._update_cluster_dict(params, 'BootstrapActions', ba_list)
-                self._update_cluster_dict(params, 'Steps', step_list)
-            else:
-                params["Applications"] = []
-                for application in parsed_args.applications:
-                    params["Applications"].append(application)
+            self._apply_applications(params, parsed_args)
 
         hbase_restore_config = parsed_args.restore_from_hbase_backup
         if hbase_restore_config is not None:
@@ -497,6 +350,199 @@ class CreateCluster(Command):
                 parsed_args.security_configuration,
             )
 
+        self._apply_ami_and_root_volume_params(params, parsed_args)
+        self._apply_optional_cluster_params(params, parsed_args)
+
+        self._validate_required_applications(parsed_args)
+
+        run_job_flow_response = emrutils.call(
+            self._session,
+            'run_job_flow',
+            params,
+            self.region,
+            parsed_globals.endpoint_url,
+            parsed_globals.verify_ssl,
+        )
+
+        constructed_result = self._construct_result(run_job_flow_response)
+        emrutils.display_response(
+            self._session, 'run_job_flow', constructed_result, parsed_globals
+        )
+
+        return 0
+
+    def _validate_mutually_exclusive_options(self, parsed_args):
+        service_role_validation_message = (
+            " Either choose --use-default-roles or use both --service-role "
+            "<roleName> and --ec2-attributes InstanceProfile=<profileName>."
+        )
+
+        if (
+            parsed_args.use_default_roles is True
+            and parsed_args.service_role is not None
+        ):
+            raise exceptions.MutualExclusiveOptionError(
+                option1="--use-default-roles",
+                option2="--service-role",
+                message=service_role_validation_message,
+            )
+
+        if (
+            parsed_args.use_default_roles is True
+            and parsed_args.ec2_attributes is not None
+            and 'InstanceProfile' in parsed_args.ec2_attributes
+        ):
+            raise exceptions.MutualExclusiveOptionError(
+                option1="--use-default-roles",
+                option2="--ec2-attributes InstanceProfile",
+                message=service_role_validation_message,
+            )
+
+        if (
+            parsed_args.instance_groups is not None
+            and parsed_args.instance_fleets is not None
+        ):
+            raise exceptions.MutualExclusiveOptionError(
+                option1="--instance-groups", option2="--instance-fleets"
+            )
+
+    def _build_instances_config(self, parsed_args):
+        instances_config = {}
+        if parsed_args.instance_fleets is not None:
+            instances_config['InstanceFleets'] = (
+                instancefleetsutils.validate_and_build_instance_fleets(
+                    parsed_args.instance_fleets
+                )
+            )
+        else:
+            instances_config['InstanceGroups'] = (
+                instancegroupsutils.validate_and_build_instance_groups(
+                    instance_groups=parsed_args.instance_groups,
+                    instance_type=parsed_args.instance_type,
+                    instance_count=parsed_args.instance_count,
+                )
+            )
+        return instances_config
+
+    def _apply_release_label_and_ami_version(self, params, parsed_args):
+        if parsed_args.release_label is not None:
+            params["ReleaseLabel"] = parsed_args.release_label
+            if parsed_args.configurations is not None:
+                try:
+                    params["Configurations"] = json.loads(
+                        parsed_args.configurations
+                    )
+                except ValueError:
+                    raise ValueError(
+                        'aws: error: invalid json argument for '
+                        'option --configurations'
+                    )
+
+        if (
+            parsed_args.release_label is None
+            and parsed_args.ami_version is not None
+        ):
+            is_valid_ami_version = re.match(
+                r'\d?\..*', parsed_args.ami_version
+            )
+            if is_valid_ami_version is None:
+                raise exceptions.InvalidAmiVersionError(
+                    ami_version=parsed_args.ami_version
+                )
+            params['AmiVersion'] = parsed_args.ami_version
+
+    def _apply_default_roles(self, parsed_args):
+        if parsed_args.use_default_roles is True:
+            parsed_args.service_role = EMR_ROLE_NAME
+            if parsed_args.ec2_attributes is None:
+                parsed_args.ec2_attributes = {}
+            parsed_args.ec2_attributes['InstanceProfile'] = EC2_ROLE_NAME
+
+    def _validate_auto_scaling_role(self, parsed_args, instances_config):
+        if parsed_args.instance_groups is None:
+            return
+        if parsed_args.auto_scaling_role is not None:
+            return
+        for instance_group in instances_config['InstanceGroups']:
+            if 'AutoScalingPolicy' in instance_group.keys():
+                raise exceptions.MissingAutoScalingRoleError()
+
+    def _apply_instance_boolean_options(self, parsed_args, instances_config):
+        if (
+            parsed_args.no_auto_terminate is False
+            and parsed_args.auto_terminate is False
+        ):
+            parsed_args.no_auto_terminate = True
+
+        instances_config['KeepJobFlowAliveWhenNoSteps'] = (
+            emrutils.apply_boolean_options(
+                parsed_args.no_auto_terminate,
+                '--no-auto-terminate',
+                parsed_args.auto_terminate,
+                '--auto-terminate',
+            )
+        )
+
+        instances_config['TerminationProtected'] = (
+            emrutils.apply_boolean_options(
+                parsed_args.termination_protected,
+                '--termination-protected',
+                parsed_args.no_termination_protected,
+                '--no-termination-protected',
+            )
+        )
+
+        if (
+            parsed_args.unhealthy_node_replacement
+            or parsed_args.no_unhealthy_node_replacement
+        ):
+            instances_config['UnhealthyNodeReplacement'] = (
+                emrutils.apply_boolean_options(
+                    parsed_args.unhealthy_node_replacement,
+                    '--unhealthy-node-replacement',
+                    parsed_args.no_unhealthy_node_replacement,
+                    '--no-unhealthy-node-replacement',
+                )
+            )
+
+    def _apply_debugging(self, params, parsed_args, parsed_globals):
+        debugging_enabled = emrutils.apply_boolean_options(
+            parsed_args.enable_debugging,
+            '--enable-debugging',
+            parsed_args.no_enable_debugging,
+            '--no-enable-debugging',
+        )
+
+        if parsed_args.log_uri is None and debugging_enabled is True:
+            raise exceptions.LogUriError
+
+        if debugging_enabled is True:
+            self._update_cluster_dict(
+                cluster=params,
+                key='Steps',
+                value=[
+                    self._build_enable_debugging(parsed_args, parsed_globals)
+                ],
+            )
+
+    def _apply_applications(self, params, parsed_args):
+        if parsed_args.release_label is None:
+            app_list, ba_list, step_list = (
+                applicationutils.build_applications(
+                    region=self.region,
+                    parsed_applications=parsed_args.applications,
+                    ami_version=params['AmiVersion'],
+                )
+            )
+            self._update_cluster_dict(params, 'NewSupportedProducts', app_list)
+            self._update_cluster_dict(params, 'BootstrapActions', ba_list)
+            self._update_cluster_dict(params, 'Steps', step_list)
+        else:
+            params["Applications"] = []
+            for application in parsed_args.applications:
+                params["Applications"].append(application)
+
+    def _apply_ami_and_root_volume_params(self, params, parsed_args):
         if parsed_args.custom_ami_id is not None:
             emrutils.apply_dict(
                 params, 'CustomAmiId', parsed_args.custom_ami_id
@@ -520,6 +566,7 @@ class CreateCluster(Command):
                 int(parsed_args.ebs_root_volume_throughput),
             )
 
+    def _apply_optional_cluster_params(self, params, parsed_args):
         if parsed_args.repo_upgrade_on_boot is not None:
             emrutils.apply_dict(
                 params, 'RepoUpgradeOnBoot', parsed_args.repo_upgrade_on_boot
@@ -579,24 +626,6 @@ class CreateCluster(Command):
                 parsed_args.monitoring_configuration,
                 parsed_args.log_uri
             )
-
-        self._validate_required_applications(parsed_args)
-
-        run_job_flow_response = emrutils.call(
-            self._session,
-            'run_job_flow',
-            params,
-            self.region,
-            parsed_globals.endpoint_url,
-            parsed_globals.verify_ssl,
-        )
-
-        constructed_result = self._construct_result(run_job_flow_response)
-        emrutils.display_response(
-            self._session, 'run_job_flow', constructed_result, parsed_globals
-        )
-
-        return 0
 
     def _construct_result(self, run_job_flow_result):
         jobFlowId = None

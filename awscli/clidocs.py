@@ -549,6 +549,14 @@ class OperationDocumentEventHandler(CLIDocumentEventHandler):
         doc.style.new_line()
         doc.write('}')
 
+    def _write_shorthand_syntax(self, doc, example_shorthand_syntax):
+        doc.style.new_paragraph()
+        doc.write('Shorthand Syntax')
+        doc.style.start_codeblock()
+        for example_line in example_shorthand_syntax.splitlines():
+            doc.writeln(example_line)
+        doc.style.end_codeblock()
+
     def doc_option_example(self, arg_name, help_command, event_name, **kwargs):
         service_id, operation_name = find_service_and_method_in_event_name(
             event_name
@@ -573,12 +581,7 @@ class OperationDocumentEventHandler(CLIDocumentEventHandler):
                 # return.
                 return
             if example_shorthand_syntax:
-                doc.style.new_paragraph()
-                doc.write('Shorthand Syntax')
-                doc.style.start_codeblock()
-                for example_line in example_shorthand_syntax.splitlines():
-                    doc.writeln(example_line)
-                doc.style.end_codeblock()
+                self._write_shorthand_syntax(doc, example_shorthand_syntax)
         if (
             argument_model is not None
             and argument_model.type_name == 'list'
