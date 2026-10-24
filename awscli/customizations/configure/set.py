@@ -50,50 +50,61 @@ class ConfigureSetCommand(BasicCommand):
         config_path = self._session.get_config_variable(path)
         return os.path.expanduser(config_path)
 
-    def _run_main(self, args, parsed_globals):
-        varname = args.varname
-        value = args.value
-        profile = 'default'
+    def _parse_profile_scoped(self, parts, value):
+        # Then we know we're scoped to a profile.
+        if parts[0] == 'default':
+            profile = 'default'
+            remaining = parts[1:]
+        else:
+            # [profile, profile_name, ...]
+            profile = parts[1]
+            remaining = parts[2:]
+        varname = remaining[0]
+        if len(remaining) == 2:
+            value = {remaining[1]: value}
+        return profile, varname, value
+
+    def _get_current_profile(self):
+        if self._session.profile is not None:
+            return self._session.profile
+        profile_name = self._session.get_config_variable('profile')
+        if profile_name is not None:
+            return profile_name
+        return 'default'
+
+    def _parse_varname(self, varname, value):
         # Before handing things off to the config writer,
         # we need to find out three things:
         # 1. What section we're writing to (profile).
         # 2. The name of the config key (varname)
         # 3. The actual value (value).
+        profile = 'default'
         if '.' not in varname:
             # unqualified name, scope it to the current
             # profile (or leave it as the 'default' section if
             # no profile is set).
             if self._session.profile is not None:
                 profile = self._session.profile
-        else:
-            # First figure out if it's been scoped to a profile.
-            parts = varname.split('.')
-            if parts[0] in ('default', 'profile'):
-                # Then we know we're scoped to a profile.
-                if parts[0] == 'default':
-                    profile = 'default'
-                    remaining = parts[1:]
-                else:
-                    # [profile, profile_name, ...]
-                    profile = parts[1]
-                    remaining = parts[2:]
-                varname = remaining[0]
-                if len(remaining) == 2:
-                    value = {remaining[1]: value}
-            elif parts[0] not in PREDEFINED_SECTION_NAMES:
-                if self._session.profile is not None:
-                    profile = self._session.profile
-                else:
-                    profile_name = self._session.get_config_variable('profile')
-                    if profile_name is not None:
-                        profile = profile_name
-                varname = parts[0]
-                if len(parts) == 2:
-                    value = {parts[1]: value}
-            elif len(parts) == 2:
-                # Otherwise it's something like "set preview.service true"
-                # of something in the [plugin] section.
-                profile, varname = parts
+            return profile, varname, value
+        # First figure out if it's been scoped to a profile.
+        parts = varname.split('.')
+        if parts[0] in ('default', 'profile'):
+            return self._parse_profile_scoped(parts, value)
+        if parts[0] not in PREDEFINED_SECTION_NAMES:
+            profile = self._get_current_profile()
+            varname = parts[0]
+            if len(parts) == 2:
+                value = {parts[1]: value}
+        elif len(parts) == 2:
+            # Otherwise it's something like "set preview.service true"
+            # of something in the [plugin] section.
+            profile, varname = parts
+        return profile, varname, value
+
+    def _run_main(self, args, parsed_globals):
+        profile, varname, value = self._parse_varname(
+            args.varname, args.value
+        )
         config_filename = self._get_config_file('config_file')
         if varname in self._WRITE_TO_CREDS_FILE:
             # When writing to the creds file, the section is just the profile
